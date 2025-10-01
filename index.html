@@ -26,10 +26,14 @@
     .progress.green { background: #28a745; }
     .progress.orange{ background: #fd7e14; }
     .progress.red   { background: #dc3545; }
+    #overview { text-align:center; font-size:18px; margin:10px 0; font-weight:bold; }
   </style>
 </head>
 <body>
   <h2>📦 點貨系統</h2>
+
+  <!-- 🆕 即時總覽 -->
+  <div id="overview">📦 今日總箱數：0</div>
 
   <!-- 模式切換 -->
   <button id="toggleMode" class="btn-toggle">🔄 切換為「查看模式」</button>
@@ -112,7 +116,7 @@
     <tbody></tbody>
   </table>
 
-  <!-- 📍 新增「各據點總箱數」區塊（查看模式用） -->
+  <!-- 各據點總計 -->
   <h3>🏠 各據點總箱數</h3>
   <table id="locationTable">
     <thead><tr><th>據點</th><th>合計箱數</th></tr></thead>
@@ -142,10 +146,7 @@
       document.getElementById("driverDisplay").textContent = currentDriver || "尚未設定";
       document.getElementById("fishDisplay").textContent   = currentFish   || "尚未設定";
       document.getElementById("totalBox").innerText        = totalBox;
-      renderSummary();
-      renderFilterTable();
-      renderPalletTable();
-      renderLocationTable();
+      renderSummary(); renderFilterTable(); renderPalletTable(); renderLocationTable(); renderOverview();
       updateFilterOptions();
     });
 
@@ -161,7 +162,7 @@
       document.getElementById("toggleMode").textContent = isViewMode
         ? "🔄 切換為「輸入模式」"
         : "🔄 切換為「查看模式」";
-      renderLocationTable();
+      renderLocationTable(); renderOverview();
     });
 
     // ======= 新增一筆 =======
@@ -190,7 +191,7 @@
       totalBox += box;
       document.getElementById("totalBox").innerText = totalBox;
 
-      renderSummary(); renderFilterTable(); renderPalletTable(); renderLocationTable(); updateFilterOptions();
+      renderSummary(); renderFilterTable(); renderPalletTable(); renderLocationTable(); renderOverview(); updateFilterOptions();
       saveData();
 
       // 防止鍵盤閃退 → 只清空箱數，保持游標
@@ -205,12 +206,23 @@
         if (!agg[item.location]) agg[item.location] = 0;
         agg[item.location] += item.box;
       });
-
       const tbody = document.querySelector("#locationTable tbody");
       tbody.innerHTML = "";
       Object.entries(agg).forEach(([loc, sum]) => {
         tbody.innerHTML += `<tr><td>${loc}</td><td>${sum}</td></tr>`;
       });
+    }
+
+    // ======= 頁首即時總覽 =======
+    function renderOverview() {
+      let overview = `📦 今日總箱數：${totalBox}`;
+      const agg = {};
+      Object.values(summary).forEach(item => {
+        if (!agg[item.location]) agg[item.location] = 0;
+        agg[item.location] += item.box;
+      });
+      const parts = Object.entries(agg).map(([loc,sum]) => ` | 🏠 ${loc}：${sum}`);
+      document.getElementById("overview").innerText = overview + parts.join("");
     }
   </script>
 </body>
