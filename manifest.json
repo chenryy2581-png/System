@@ -1,7 +1,7 @@
 {
   "name": "點貨系統",
   "short_name": "點貨",
-  "start_url": "./index.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#007bff",
