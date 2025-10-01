@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>點貨系統 (完整版)</title>
-  <!-- PWA 設定 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
   <style>
@@ -34,14 +33,10 @@
 <body>
   <h2>📦 點貨系統</h2>
 
-  <!-- 模式切換 -->
   <button id="toggleMode" class="btn-toggle">🔄 切換為「查看模式」</button>
-
-  <!-- 顯示目前設定 -->
   <h3 class="displayBox">🚚 當前司機：<span id="driverDisplay">尚未設定</span></h3>
   <h3 class="displayBox">🐟 當前魚種：<span id="fishDisplay">尚未設定</span></h3>
 
-  <!-- 輸入區 -->
   <div id="inputSection">
     <label>🚚 設定司機</label>
     <select id="currentDriver">
@@ -89,9 +84,7 @@
     <table id="summaryTable">
       <thead>
         <tr>
-          <th>司機</th><th>據點</th><th>棧板編號</th>
-          <th>魚種</th><th>規格</th><th>本筆箱數</th>
-          <th>棧板累計</th><th>是否滿版</th><th>操作</th>
+          <th>司機</th><th>據點</th><th>棧板編號</th><th>魚種</th><th>規格</th><th>本筆箱數</th><th>棧板累計</th><th>是否滿版</th><th>操作</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -117,47 +110,12 @@
     <tbody></tbody>
   </table>
 
-  <!-- === JS === -->
+  <script src="main.js"></script>
   <script>
-    let totalBox = 0;
-    let summary = {};
-    let palletSum = {};
-    let currentDriver = "";
-    let currentFish  = "";
-    let isViewMode   = false;
-
-    // 載入資料
-    window.addEventListener('load', () => {
-      const saved = localStorage.getItem("cargoData");
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          summary       = data.summary      || {};
-          palletSum     = data.palletSum    || {};
-          totalBox      = data.totalBox     || 0;
-          currentDriver = data.currentDriver|| "";
-          currentFish   = data.currentFish  || "";
-        } catch(e) { console.error(e); }
-      }
-      document.getElementById("driverDisplay").textContent = currentDriver || "尚未設定";
-      document.getElementById("fishDisplay").textContent   = currentFish   || "尚未設定";
-      document.getElementById("totalBox").innerText        = totalBox;
-      renderSummary(); renderFilterTable(); renderPalletTable(); updateFilterOptions();
-    });
-
-    function saveData() {
-      localStorage.setItem("cargoData", JSON.stringify({
-        summary, palletSum, totalBox, currentDriver, currentFish
-      }));
-    }
-
-    // ===（這裡保留你原本所有函式：renderSummary, renderFilterTable, renderPalletTable, deleteEntry, 匯出CSV, 清除, 模式切換… 全部不刪）===
-
-    // PWA Service Worker 註冊
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js").then(() => {
-        console.log("✅ Service Worker 註冊成功");
-      });
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker 註冊成功"))
+        .catch(err => console.error("Service Worker 註冊失敗", err));
     }
   </script>
 </body>
