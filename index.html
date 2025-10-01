@@ -29,6 +29,11 @@
     .progress.orange{ background: #fd7e14; }
     .progress.red   { background: #dc3545; }
   </style>
+  <script>
+  // 強制避免快取：在每次載入 main.js / service-worker.js 時，自動加版本號
+  const version = "v1.0.3"; // 每次更新改一下這個字串
+  document.write(`<script type="module" src="main.js?${version}"><\/script>`);
+</script>
 </head>
 <body>
   <h2>📦 點貨系統</h2>
