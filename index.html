@@ -3,15 +3,157 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>點貨系統</title>
+  <title>點貨系統 (完整版)</title>
+  <!-- PWA 設定 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { text-align: center; }
+    h3.displayBox { text-align: center; font-size: 22px; color: #007bff; margin: 8px 0; }
+    label { display: block; margin: 10px 0 6px; }
+    select, input, button {
+      width: 100%; padding: 10px; font-size: 16px; margin-bottom: 14px;
+      border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+    }
+    button { cursor: pointer; }
+    .btn-primary { background: #007bff; color: #fff; border: none; }
+    .btn-danger  { background: #dc3545; color: #fff; border: none; }
+    .btn-toggle  { background: #28a745; color: #fff; border: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f0f0f0; }
+    .hidden { display: none; }
+    .progress-bar { width: 100%; background: #eee; border-radius: 5px; overflow: hidden; height: 18px; }
+    .progress { height: 100%; text-align: center; color: #fff; font-size: 12px; line-height: 18px; }
+    .progress.green { background: #28a745; }
+    .progress.orange{ background: #fd7e14; }
+    .progress.red   { background: #dc3545; }
+  </style>
 </head>
 <body>
   <h2>📦 點貨系統</h2>
-  <p>這是測試版本，安裝成 Web App 後就能像 APP 一樣使用。</p>
 
+  <!-- 模式切換 -->
+  <button id="toggleMode" class="btn-toggle">🔄 切換為「查看模式」</button>
+
+  <!-- 顯示目前設定 -->
+  <h3 class="displayBox">🚚 當前司機：<span id="driverDisplay">尚未設定</span></h3>
+  <h3 class="displayBox">🐟 當前魚種：<span id="fishDisplay">尚未設定</span></h3>
+
+  <!-- 輸入區 -->
+  <div id="inputSection">
+    <label>🚚 設定司機</label>
+    <select id="currentDriver">
+      <option value="">請選擇</option>
+      <option>蘇德村</option><option>蘇恩田</option>
+      <option>李育銘</option><option>柯嘉雄</option>
+      <option>外車1</option><option>外車2</option><option>外車3</option>
+      <option value="_other">其他（自訂）</option>
+    </select>
+
+    <label>🐟 設定魚種</label>
+    <select id="currentFish">
+      <option value="">請選擇</option>
+      <option>金目</option><option>加州</option><option>七星</option><option>紅尼</option><option>龍虎</option>
+      <option value="_other">其他（自訂）</option>
+    </select>
+
+    <form id="form">
+      <label>據點</label>
+      <select id="location">
+        <option value="">請選擇</option>
+        <option>台北</option><option>基隆</option><option>三重</option><option>桃園</option>
+        <option>中壢o</option><option>中壢x</option><option>中壢1</option><option>中壢2</option><option>中壢3</option>
+      </select>
+
+      <label>棧板編號</label>
+      <input type="number" id="pallet" placeholder="例如：1" inputmode="numeric">
+
+      <label>規格 (尾/箱)</label>
+      <input type="number" id="spec" placeholder="例如：6" inputmode="numeric">
+
+      <label>箱數</label>
+      <input type="number" id="box" placeholder="輸入箱數" inputmode="numeric">
+
+      <button type="submit" class="btn-primary">送出</button>
+    </form>
+
+    <button id="clearBtn"  class="btn-danger">清除所有資料</button>
+    <button id="exportBtn" class="btn-primary">📤 匯出 CSV</button>
+
+    <h3>📊 今日統計</h3>
+    <p>總箱數：<span id="totalBox">0</span></p>
+
+    <h3>📋 明細表</h3>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>司機</th><th>據點</th><th>棧板編號</th>
+          <th>魚種</th><th>規格</th><th>本筆箱數</th>
+          <th>棧板累計</th><th>是否滿版</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>🔎 統計表（可篩選）</h3>
+    <label>司機</label>  <select id="filterDriver"><option value="">全部</option></select>
+    <label>據點</label>  <select id="filterLocation"><option value="">全部</option></select>
+    <label>魚種</label>  <select id="filterFish"><option value="">全部</option></select>
+    <label>規格</label>  <select id="filterSpec"><option value="">全部</option></select>
+
+    <table id="filterTable">
+      <thead><tr><th>司機</th><th>據點</th><th>魚種</th><th>規格</th><th>合計箱數</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h3>🪵 棧板小計表</h3>
+  <table id="palletTable">
+    <thead>
+      <tr><th>司機</th><th>據點</th><th>棧板編號</th><th>進度</th><th>累計箱數</th><th>是否滿版</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- === JS === -->
   <script>
+    let totalBox = 0;
+    let summary = {};
+    let palletSum = {};
+    let currentDriver = "";
+    let currentFish  = "";
+    let isViewMode   = false;
+
+    // 載入資料
+    window.addEventListener('load', () => {
+      const saved = localStorage.getItem("cargoData");
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          summary       = data.summary      || {};
+          palletSum     = data.palletSum    || {};
+          totalBox      = data.totalBox     || 0;
+          currentDriver = data.currentDriver|| "";
+          currentFish   = data.currentFish  || "";
+        } catch(e) { console.error(e); }
+      }
+      document.getElementById("driverDisplay").textContent = currentDriver || "尚未設定";
+      document.getElementById("fishDisplay").textContent   = currentFish   || "尚未設定";
+      document.getElementById("totalBox").innerText        = totalBox;
+      renderSummary(); renderFilterTable(); renderPalletTable(); updateFilterOptions();
+    });
+
+    function saveData() {
+      localStorage.setItem("cargoData", JSON.stringify({
+        summary, palletSum, totalBox, currentDriver, currentFish
+      }));
+    }
+
+    // ===（這裡保留你原本所有函式：renderSummary, renderFilterTable, renderPalletTable, deleteEntry, 匯出CSV, 清除, 模式切換… 全部不刪）===
+
+    // PWA Service Worker 註冊
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js").then(() => {
         console.log("✅ Service Worker 註冊成功");
