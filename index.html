@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>點貨系統 (完整版)</title>
+  <title>點貨系統 (Firebase 版)</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
   <style>
@@ -22,102 +22,107 @@
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background: #f0f0f0; }
-    .hidden { display: none; }
-    .progress-bar { width: 100%; background: #eee; border-radius: 5px; overflow: hidden; height: 18px; }
-    .progress { height: 100%; text-align: center; color: #fff; font-size: 12px; line-height: 18px; }
-    .progress.green { background: #28a745; }
-    .progress.orange{ background: #fd7e14; }
-    .progress.red   { background: #dc3545; }
   </style>
 </head>
 <body>
-  <h2>📦 點貨系統</h2>
+  <h2>📦 點貨系統 (Firebase)</h2>
 
-  <button id="toggleMode" class="btn-toggle">🔄 切換為「查看模式」</button>
   <h3 class="displayBox">🚚 當前司機：<span id="driverDisplay">尚未設定</span></h3>
   <h3 class="displayBox">🐟 當前魚種：<span id="fishDisplay">尚未設定</span></h3>
 
-  <div id="inputSection">
-    <label>🚚 設定司機</label>
+  <form id="form">
+    <label>🚚 司機</label>
     <select id="currentDriver">
       <option value="">請選擇</option>
       <option>蘇德村</option><option>蘇恩田</option>
       <option>李育銘</option><option>柯嘉雄</option>
       <option>外車1</option><option>外車2</option><option>外車3</option>
-      <option value="_other">其他（自訂）</option>
     </select>
 
-    <label>🐟 設定魚種</label>
+    <label>🐟 魚種</label>
     <select id="currentFish">
       <option value="">請選擇</option>
-      <option>金目</option><option>加州</option><option>七星</option><option>紅尼</option><option>龍虎</option>
-      <option value="_other">其他（自訂）</option>
+      <option>金目</option><option>加州</option><option>七星</option>
+      <option>紅尼</option><option>龍虎</option>
     </select>
 
-    <form id="form">
-      <label>據點</label>
-      <select id="location">
-        <option value="">請選擇</option>
-        <option>台北</option><option>基隆</option><option>三重</option><option>桃園</option>
-        <option>中壢o</option><option>中壢x</option><option>中壢1</option><option>中壢2</option><option>中壢3</option>
-      </select>
+    <label>📍 據點</label>
+    <select id="location">
+      <option value="">請選擇</option>
+      <option>台北</option><option>基隆</option><option>三重</option><option>桃園</option>
+      <option>中壢o</option><option>中壢x</option>
+    </select>
 
-      <label>棧板編號</label>
-      <input type="number" id="pallet" placeholder="例如：1" inputmode="numeric">
+    <label>🪵 棧板編號</label>
+    <input type="number" id="pallet" placeholder="例如：1" inputmode="numeric">
 
-      <label>規格 (尾/箱)</label>
-      <input type="number" id="spec" placeholder="例如：6" inputmode="numeric">
+    <label>⚖️ 規格 (尾/箱)</label>
+    <input type="number" id="spec" placeholder="例如：6" inputmode="numeric">
 
-      <label>箱數</label>
-      <input type="number" id="box" placeholder="輸入箱數" inputmode="numeric">
+    <label>📦 箱數</label>
+    <input type="number" id="box" placeholder="輸入箱數" inputmode="numeric">
 
-      <button type="submit" class="btn-primary">送出</button>
-    </form>
+    <button type="submit" class="btn-primary">送出</button>
+  </form>
 
-    <button id="clearBtn"  class="btn-danger">清除所有資料</button>
-    <button id="exportBtn" class="btn-primary">📤 匯出 CSV</button>
+  <h3>📋 已送出的資料</h3>
+  <ul id="dataList"></ul>
 
-    <h3>📊 今日統計</h3>
-    <p>總箱數：<span id="totalBox">0</span></p>
+  <!-- ✅ Firebase 連接 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    <h3>📋 明細表</h3>
-    <table id="summaryTable">
-      <thead>
-        <tr>
-          <th>司機</th><th>據點</th><th>棧板編號</th><th>魚種</th><th>規格</th><th>本筆箱數</th><th>棧板累計</th><th>是否滿版</th><th>操作</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    // 🔑 Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyDyzfiGBBfkIYUp_xKykdncocJJwLTnqMs",
+      authDomain: "cargosystem-56b91.firebaseapp.com",
+      projectId: "cargosystem-56b91",
+      storageBucket: "cargosystem-56b91.firebasestorage.app",
+      messagingSenderId: "150281096087",
+      appId: "1:150281096087:web:96b16f96f6f5887f2692d2",
+      measurementId: "G-TLMZFMZW4K"
+    };
 
-    <h3>🔎 統計表（可篩選）</h3>
-    <label>司機</label>  <select id="filterDriver"><option value="">全部</option></select>
-    <label>據點</label>  <select id="filterLocation"><option value="">全部</option></select>
-    <label>魚種</label>  <select id="filterFish"><option value="">全部</option></select>
-    <label>規格</label>  <select id="filterSpec"><option value="">全部</option></select>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    <table id="filterTable">
-      <thead><tr><th>司機</th><th>據點</th><th>魚種</th><th>規格</th><th>合計箱數</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    const form = document.getElementById("form");
+    const dataList = document.getElementById("dataList");
 
-  <h3>🪵 棧板小計表</h3>
-  <table id="palletTable">
-    <thead>
-      <tr><th>司機</th><th>據點</th><th>棧板編號</th><th>進度</th><th>累計箱數</th><th>是否滿版</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    // 📤 表單送出 → 寫入 Firestore
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        driver: document.getElementById("currentDriver").value,
+        fish: document.getElementById("currentFish").value,
+        location: document.getElementById("location").value,
+        pallet: document.getElementById("pallet").value,
+        spec: document.getElementById("spec").value,
+        box: document.getElementById("box").value,
+        createdAt: new Date()
+      };
 
-  <!-- 🔥 這裡加上版本號 v=1 -->
-  <script src="main.js?v=1"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js")
-        .then(() => console.log("Service Worker 註冊成功"))
-        .catch(err => console.error("Service Worker 註冊失敗", err));
+      await addDoc(collection(db, "cargoData"), data);
+      alert("✅ 已同步到 Firebase！");
+
+      loadData(); // 送出後重新載入
+      form.reset();
+    });
+
+    // 📥 讀取 Firestore
+    async function loadData() {
+      dataList.innerHTML = "";
+      const querySnapshot = await getDocs(collection(db, "cargoData"));
+      querySnapshot.forEach((doc) => {
+        const d = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${d.driver} | ${d.fish} | ${d.location} | 規格:${d.spec} | 箱:${d.box}`;
+        dataList.appendChild(li);
+      });
     }
+
+    loadData(); // 頁面載入時讀取
   </script>
 </body>
 </html>
