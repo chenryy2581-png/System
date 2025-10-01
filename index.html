@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>活魚下桶藍牙系統</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h2 { text-align: center; }
+    select, button { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f0f0f0; }
+    .btn-primary { background: #007bff; color: #fff; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>🐟 活魚下桶系統 (藍牙版)</h2>
+
+  <!-- 選單設定 -->
+  <label>🚚 司機</label>
+  <select id="driver">
+    <option value="">請選擇</option>
+    <option>蘇得村</option><option>蘇恩田</option>
+    <option>李育銘</option><option>柯嘉雄</option>
+    <option>外車1</option><option>外車2</option><option>外車3</option>
+  </select>
+
+  <label>🐟 魚種</label>
+  <select id="fish">
+    <option value="">請選擇</option>
+    <option>金目</option><option>加州</option><option>七星</option><option>紅尼</option><option>龍虎</option>
+  </select>
+
+  <label>📏 規格</label>
+  <select id="spec">
+    <option value="">請選擇</option>
+    <option>5-6</option><option>7-8</option><option>9-10</option><option>11-14</option><option>其他</option>
+  </select>
+
+  <!-- 藍牙 -->
+  <button id="connectBtn" class="btn-primary">🔗 連接藍牙磅秤</button>
+  <p id="status">尚未連線</p>
+
+  <!-- 紀錄 -->
+  <h3>📋 明細</h3>
+  <table>
+    <thead><tr><th>司機</th><th>魚種</th><th>規格</th><th>重量 (kg)</th></tr></thead>
+    <tbody id="recordTable"></tbody>
+  </table>
+
+<script>
+  let records = [];
+
+  // 請修改為你磅秤的實際 UUID
+  const SERVICE_UUID = "battery_service";          // ⚠️ 改成磅秤的 Service UUID
+  const CHARACTERISTIC_UUID = "battery_level";     // ⚠️ 改成磅秤的 Characteristic UUID
+
+  async function connectScale() {
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [SERVICE_UUID]
+      });
+
+      document.getElementById("status").textContent = "✅ 已連線：" + (device.name || "未命名裝置");
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+      const char = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+      // 開始監聽數據
+      await char.startNotifications();
+      char.addEventListener("characteristicvaluechanged", e => {
+        let value = e.target.value.getUint8(0);  // ⚠️ 依磅秤格式調整
+        let weight = value / 10; // 假設轉成公斤
+        addRecord(weight);
+      });
+
+    } catch (err) {
+      document.getElementById("status").textContent = "❌ 連線失敗：" + err;
+    }
+  }
+
+  function addRecord(weight) {
+    const driver = document.getElementById("driver").value;
+    const fish   = document.getElementById("fish").value;
+    const spec   = document.getElementById("spec").value;
+
+    if (!driver || !fish || !spec) {
+      alert("請先設定 司機 / 魚種 / 規格");
+      return;
+    }
+
+    records.push({ driver, fish, spec, weight });
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById("recordTable");
+    tbody.innerHTML = records.map(r =>
+      `<tr><td>${r.driver}</td><td>${r.fish}</td><td>${r.spec}</td><td>${r.weight.toFixed(2)}</td></tr>`
+    ).join("");
+  }
+
+  document.getElementById("connectBtn").addEventListener("click", connectScale);
+</script>
+</body>
+</html>
