@@ -14,10 +14,11 @@
     .btn-primary { background: #007bff; color: #fff; border: none; cursor: pointer; }
     .btn-danger { background: #dc3545; color: #fff; border: none; cursor: pointer; }
     #debug { background: #111; color: #0f0; padding: 10px; font-size: 14px; margin-top: 20px; height: 150px; overflow-y: scroll; }
+    #latestWeight { font-size: 22px; font-weight: bold; color: #007bff; text-align: center; margin: 10px 0; }
   </style>
 </head>
 <body>
-  <h2>🐟 活魚下桶系統 (藍牙版)</h2>
+  <h2>🐟 活魚下桶系統 (BT04-A)</h2>
 
   <!-- 設定 -->
   <label>🚚 司機</label>
@@ -44,8 +45,13 @@
   </select>
 
   <!-- 藍牙 -->
-  <button id="connectBtn" class="btn-primary">🔗 連接藍牙磅秤</button>
+  <button id="connectBtn" class="btn-primary">🔗 連接藍牙磅秤 (BT04-A)</button>
   <p id="status">尚未連線</p>
+
+  <!-- 最新重量 -->
+  <h3>📥 最新重量</h3>
+  <div id="latestWeight">尚未接收</div>
+  <button id="confirmBtn" class="btn-primary" disabled>✅ 確認重量並加入紀錄</button>
 
   <!-- 統計 -->
   <h3>📊 統計</h3>
@@ -65,9 +71,10 @@
 
 <script>
   let records = [];
+  let tempWeight = null;
 
-  const SERVICE_UUID = 0xFFE0;   // 磅秤主要服務
-  const CHARACTERISTIC_UUID = 0xFFE1; // 重量數據特徵
+  const SERVICE_UUID = 0xFFE0;
+  const CHARACTERISTIC_UUID = 0xFFE1;
 
   function logDebug(msg) {
     const debugDiv = document.getElementById("debug");
@@ -75,7 +82,15 @@
     debugDiv.scrollTop = debugDiv.scrollHeight;
   }
 
-  // 下拉選單處理
+  // 讀取上次設定
+  window.onload = () => {
+    ["driver", "fish", "spec"].forEach(id => {
+      const saved = localStorage.getItem("setting_" + id);
+      if (saved) document.getElementById(id).value = saved;
+    });
+  };
+
+  // 下拉選單處理 + 保存設定
   function handleSelectChange(sel) {
     if (sel.value === "_other") {
       const name = (prompt("輸入新選項名稱：") || "").trim();
@@ -86,16 +101,16 @@
         sel.value = name;
       } else sel.value = "";
     }
+    localStorage.setItem("setting_" + sel.id, sel.value);
   }
   document.getElementById("driver").addEventListener("change", function(){handleSelectChange(this)});
   document.getElementById("fish").addEventListener("change", function(){handleSelectChange(this)});
   document.getElementById("spec").addEventListener("change", function(){handleSelectChange(this)});
 
-  // 藍牙連線
   async function connectScale() {
     try {
       const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
+        filters: [{ name: 'BT04-A' }],
         optionalServices: [SERVICE_UUID]
       });
 
@@ -109,8 +124,6 @@
       await char.startNotifications();
       char.addEventListener("characteristicvaluechanged", e => {
         let value = e.target.value;
-
-        // 轉成 Uint8 陣列
         let raw = [];
         for (let i = 0; i < value.byteLength; i++) {
           raw.push(value.getUint8(i));
@@ -122,12 +135,14 @@
         if (!isNaN(parseFloat(text))) {
           weight = parseFloat(text);
         } else {
-          weight = value.getUint8(0); // fallback
+          weight = value.getUint8(0);
         }
 
-        logDebug("📥 收到原始：" + raw.join(" ") + " ｜ 解碼：" + text + " ｜ 解析重量：" + weight);
+        tempWeight = weight;
+        document.getElementById("latestWeight").textContent = weight.toFixed(2) + " 公斤";
+        document.getElementById("confirmBtn").disabled = false;
 
-        addRecord(weight);
+        logDebug("📥 原始：" + raw.join(" ") + " ｜ 解碼：" + text + " ｜ 暫存重量：" + weight);
       });
 
     } catch (err) {
@@ -136,8 +151,11 @@
     }
   }
 
-  // 新增紀錄
-  function addRecord(weight) {
+  function confirmWeight() {
+    if (tempWeight == null) {
+      alert("目前沒有重量可以確認");
+      return;
+    }
     const driver = document.getElementById("driver").value;
     const fish   = document.getElementById("fish").value;
     const spec   = document.getElementById("spec").value;
@@ -147,12 +165,15 @@
       return;
     }
 
-    records.push({ driver, fish, spec, weight });
+    records.push({ driver, fish, spec, weight: tempWeight });
     renderTable();
     updateStats();
+
+    tempWeight = null;
+    document.getElementById("latestWeight").textContent = "尚未接收";
+    document.getElementById("confirmBtn").disabled = true;
   }
 
-  // 渲染表格
   function renderTable() {
     const tbody = document.getElementById("recordTable");
     tbody.innerHTML = records.map((r, idx) =>
@@ -176,6 +197,7 @@
   }
 
   document.getElementById("connectBtn").addEventListener("click", connectScale);
+  document.getElementById("confirmBtn").addEventListener("click", confirmWeight);
 </script>
 </body>
 </html>
