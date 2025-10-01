@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDyzfiGBBfkIYUp_xKykdncocJJwLTnqMs",
@@ -48,7 +48,7 @@ onSnapshot(collection(db, "cargoData"), (snapshot) => {
   updateFilterOptions();
 });
 
-// ======= 新增一筆 =======
+// ======= 表單送出（新增一筆資料） =======
 document.getElementById("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!currentDriver) { alert("⚠️ 請先設定司機！"); return; }
@@ -74,7 +74,7 @@ document.getElementById("form").addEventListener("submit", async (e) => {
   }
 });
 
-// ======= UI Render Functions (保持跟原本一樣) =======
+// ======= UI Render Functions =======
 function renderSummary() {
   const tbody = document.querySelector("#summaryTable tbody");
   tbody.innerHTML = "";
@@ -92,7 +92,7 @@ function renderSummary() {
         <td>${item.box}</td>
         <td>${pTotal}</td>
         <td>${isFull}</td>
-        <td>（Firestore 資料無法本地刪除）</td>
+        <td>（Firestore 資料同步，暫不支援刪除）</td>
       </tr>`;
   });
 }
