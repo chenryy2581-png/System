@@ -3,9 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>點貨系統 (Firebase 版)</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#007bff">
+  <title>點貨系統 (本機版)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h2 { text-align: center; }
@@ -22,107 +20,338 @@
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background: #f0f0f0; }
+    .hidden { display: none; }
+    /* 進度條 */
+    .progress-bar { width: 100%; background: #eee; border-radius: 5px; overflow: hidden; height: 18px; }
+    .progress { height: 100%; text-align: center; color: #fff; font-size: 12px; line-height: 18px; }
+    .progress.green { background: #28a745; }
+    .progress.orange{ background: #fd7e14; }
+    .progress.red   { background: #dc3545; }
   </style>
 </head>
 <body>
-  <h2>📦 點貨系統 (Firebase)</h2>
+  <h2>📦 點貨系統 (本機版)</h2>
 
+  <!-- 模式切換 -->
+  <button id="toggleMode" class="btn-toggle">🔄 切換為「查看模式」</button>
+
+  <!-- 顯示目前設定 -->
   <h3 class="displayBox">🚚 當前司機：<span id="driverDisplay">尚未設定</span></h3>
   <h3 class="displayBox">🐟 當前魚種：<span id="fishDisplay">尚未設定</span></h3>
 
-  <form id="form">
-    <label>🚚 司機</label>
+  <!-- 輸入區（輸入模式才會顯示） -->
+  <div id="inputSection">
+    <label>🚚 設定司機</label>
     <select id="currentDriver">
       <option value="">請選擇</option>
       <option>蘇德村</option><option>蘇恩田</option>
       <option>李育銘</option><option>柯嘉雄</option>
       <option>外車1</option><option>外車2</option><option>外車3</option>
+      <option value="_other">其他（自訂）</option>
     </select>
 
-    <label>🐟 魚種</label>
+    <label>🐟 設定魚種</label>
     <select id="currentFish">
       <option value="">請選擇</option>
-      <option>金目</option><option>加州</option><option>七星</option>
-      <option>紅尼</option><option>龍虎</option>
+      <option>金目</option><option>加州</option><option>七星</option><option>紅尼</option><option>龍虎</option>
+      <option value="_other">其他（自訂）</option>
     </select>
 
-    <label>📍 據點</label>
-    <select id="location">
-      <option value="">請選擇</option>
-      <option>台北</option><option>基隆</option><option>三重</option><option>桃園</option>
-      <option>中壢o</option><option>中壢x</option>
-    </select>
+    <!-- 輸入表單 -->
+    <form id="form">
+      <label>據點</label>
+      <select id="location">
+        <option value="">請選擇</option>
+        <option>台北</option><option>基隆</option><option>三重</option><option>桃園</option>
+        <option>中壢o</option><option>中壢x</option><option>中壢1</option><option>中壢2</option><option>中壢3</option>
+      </select>
 
-    <label>🪵 棧板編號</label>
-    <input type="number" id="pallet" placeholder="例如：1" inputmode="numeric">
+      <label>棧板編號</label>
+      <input type="number" id="pallet" placeholder="例如：1" inputmode="numeric">
 
-    <label>⚖️ 規格 (尾/箱)</label>
-    <input type="number" id="spec" placeholder="例如：6" inputmode="numeric">
+      <label>規格 (尾/箱)</label>
+      <input type="number" id="spec" placeholder="例如：6" inputmode="numeric">
 
-    <label>📦 箱數</label>
-    <input type="number" id="box" placeholder="輸入箱數" inputmode="numeric">
+      <label>箱數</label>
+      <input type="number" id="box" placeholder="輸入箱數" inputmode="numeric">
 
-    <button type="submit" class="btn-primary">送出</button>
-  </form>
+      <button type="submit" class="btn-primary">送出</button>
+    </form>
 
-  <h3>📋 已送出的資料</h3>
-  <ul id="dataList"></ul>
+    <button id="clearBtn"  class="btn-danger">清除所有資料</button>
+    <button id="exportBtn" class="btn-primary">📤 匯出 CSV</button>
 
-  <!-- ✅ Firebase 連接 -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    <!-- 總箱數 -->
+    <h3>📊 今日統計</h3>
+    <p>總箱數：<span id="totalBox">0</span></p>
 
-    // 🔑 Firebase 設定
-    const firebaseConfig = {
-      apiKey: "AIzaSyDyzfiGBBfkIYUp_xKykdncocJJwLTnqMs",
-      authDomain: "cargosystem-56b91.firebaseapp.com",
-      projectId: "cargosystem-56b91",
-      storageBucket: "cargosystem-56b91.firebasestorage.app",
-      messagingSenderId: "150281096087",
-      appId: "1:150281096087:web:96b16f96f6f5887f2692d2",
-      measurementId: "G-TLMZFMZW4K"
-    };
+    <!-- 明細表 -->
+    <h3>📋 明細表</h3>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>司機</th>
+          <th>據點</th>
+          <th>棧板編號</th>
+          <th>魚種</th>
+          <th>規格</th>
+          <th>本筆箱數</th>
+          <th>棧板累計</th>
+          <th>是否滿版</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    <!-- 統計表 -->
+    <h3>🔎 統計表（可篩選）</h3>
+    <label>司機</label>  <select id="filterDriver"><option value="">全部</option></select>
+    <label>據點</label>  <select id="filterLocation"><option value="">全部</option></select>
+    <label>魚種</label>  <select id="filterFish"><option value="">全部</option></select>
+    <label>規格</label>  <select id="filterSpec"><option value="">全部</option></select>
 
-    const form = document.getElementById("form");
-    const dataList = document.getElementById("dataList");
+    <table id="filterTable">
+      <thead><tr><th>司機</th><th>據點</th><th>魚種</th><th>規格</th><th>合計箱數</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-    // 📤 表單送出 → 寫入 Firestore
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const data = {
-        driver: document.getElementById("currentDriver").value,
-        fish: document.getElementById("currentFish").value,
-        location: document.getElementById("location").value,
-        pallet: document.getElementById("pallet").value,
-        spec: document.getElementById("spec").value,
-        box: document.getElementById("box").value,
-        createdAt: new Date()
-      };
+  <!-- 棧板小計表 -->
+  <h3>🪵 棧板小計表</h3>
+  <table id="palletTable">
+    <thead>
+      <tr>
+        <th>司機</th>
+        <th>據點</th>
+        <th>棧板編號</th>
+        <th>進度</th>
+        <th>累計箱數</th>
+        <th>是否滿版</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-      await addDoc(collection(db, "cargoData"), data);
-      alert("✅ 已同步到 Firebase！");
+  <script>
+    // ======= 狀態 =======
+    let totalBox = 0;
+    let summary = {};   // key: driver|location|pallet|fish|spec
+    let palletSum = {}; // key: driver|location|pallet -> number
+    let currentDriver = "";
+    let currentFish  = "";
+    let isViewMode   = false;
 
-      loadData(); // 送出後重新載入
-      form.reset();
+    // ======= 啟動（localStorage 載入） =======
+    window.addEventListener('load', () => {
+      const saved = localStorage.getItem("cargoData");
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          summary       = data.summary      || {};
+          palletSum     = data.palletSum    || {};
+          totalBox      = data.totalBox     || 0;
+          currentDriver = data.currentDriver|| "";
+          currentFish   = data.currentFish  || "";
+        } catch(e) { console.error(e); }
+      }
+      document.getElementById("driverDisplay").textContent = currentDriver || "尚未設定";
+      document.getElementById("fishDisplay").textContent   = currentFish   || "尚未設定";
+      document.getElementById("totalBox").innerText        = totalBox;
+
+      renderSummary();
+      renderFilterTable();
+      renderPalletTable();
+      updateFilterOptions();
     });
 
-    // 📥 讀取 Firestore
-    async function loadData() {
-      dataList.innerHTML = "";
-      const querySnapshot = await getDocs(collection(db, "cargoData"));
-      querySnapshot.forEach((doc) => {
-        const d = doc.data();
-        const li = document.createElement("li");
-        li.textContent = `${d.driver} | ${d.fish} | ${d.location} | 規格:${d.spec} | 箱:${d.box}`;
-        dataList.appendChild(li);
+    function saveData() {
+      localStorage.setItem("cargoData", JSON.stringify({
+        summary, palletSum, totalBox, currentDriver, currentFish
+      }));
+    }
+
+    // ======= 模式切換 =======
+    document.getElementById("toggleMode").addEventListener("click", () => {
+      isViewMode = !isViewMode;
+      document.getElementById("inputSection").classList.toggle("hidden", isViewMode);
+      document.getElementById("toggleMode").textContent = isViewMode
+        ? "🔄 切換為「輸入模式」"
+        : "🔄 切換為「查看模式」";
+    });
+
+    // ======= 固定司機 / 魚種 =======
+    document.getElementById("currentDriver").addEventListener("change", function () {
+      currentDriver = this.value;
+      document.getElementById("driverDisplay").textContent = currentDriver || "尚未設定";
+      saveData();
+    });
+
+    document.getElementById("currentFish").addEventListener("change", function () {
+      currentFish = this.value;
+      document.getElementById("fishDisplay").textContent = currentFish || "尚未設定";
+      saveData();
+    });
+
+    // ======= 更新篩選器 =======
+    function updateFilterOptions() {
+      const drivers   = new Set(Object.values(summary).map(i=>i.driver));
+      const locations = new Set(Object.values(summary).map(i=>i.location));
+      const fishes    = new Set(Object.values(summary).map(i=>i.fish));
+      const specs     = new Set(Object.values(summary).map(i=>i.spec));
+
+      const fill = (id, values) => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = `<option value="">全部</option>` + [...values].map(v=>`<option value="${v}">${v}</option>`).join("");
+      };
+      fill("filterDriver", drivers);
+      fill("filterLocation", locations);
+      fill("filterFish", fishes);
+      fill("filterSpec", specs);
+    }
+
+    // ======= 明細表 =======
+    function renderSummary() {
+      const tbody = document.querySelector("#summaryTable tbody");
+      tbody.innerHTML = "";
+      Object.entries(summary).forEach(([key, item]) => {
+        const pKey = `${item.driver}|${item.location}|${item.pallet}`;
+        const pTotal = palletSum[pKey] || 0;
+        const isFull = pTotal >= 60 ? "✅ 滿版" : "";
+        tbody.innerHTML += `
+          <tr>
+            <td>${item.driver}</td>
+            <td>${item.location}</td>
+            <td>${item.pallet}</td>
+            <td>${item.fish}</td>
+            <td>${item.spec}</td>
+            <td>${item.box}</td>
+            <td>${pTotal}</td>
+            <td>${isFull}</td>
+            <td><button class="btn-danger" onclick="deleteEntry('${key}')">❌</button></td>
+          </tr>`;
       });
     }
 
-    loadData(); // 頁面載入時讀取
+    window.deleteEntry = function(key) {
+      if (!summary[key]) return;
+      const item = summary[key];
+      const pKey = `${item.driver}|${item.location}|${item.pallet}`;
+      totalBox -= item.box;
+      palletSum[pKey] -= item.box;
+      if (palletSum[pKey] <= 0) delete palletSum[pKey];
+      delete summary[key];
+      document.getElementById("totalBox").innerText = totalBox;
+      renderSummary(); renderFilterTable(); renderPalletTable(); updateFilterOptions();
+      saveData();
+    };
+
+    // ======= 統計表 =======
+    function renderFilterTable() {
+      const fDriver   = document.getElementById("filterDriver").value;
+      const fLocation = document.getElementById("filterLocation").value;
+      const fFish     = document.getElementById("filterFish").value;
+      const fSpec     = document.getElementById("filterSpec").value;
+
+      const agg = {};
+      Object.values(summary).forEach(item => {
+        if ((fDriver && item.driver !== fDriver) ||
+            (fLocation && item.location !== fLocation) ||
+            (fFish && item.fish !== fFish) ||
+            (fSpec && item.spec !== fSpec)) return;
+
+        const key = `${item.driver}|${item.location}|${item.fish}|${item.spec}`;
+        if (!agg[key]) agg[key] = { driver:item.driver, location:item.location, fish:item.fish, spec:item.spec, box:0 };
+        agg[key].box += item.box;
+      });
+
+      const tbody = document.querySelector("#filterTable tbody");
+      tbody.innerHTML = "";
+      Object.values(agg).forEach(row => {
+        tbody.innerHTML += `<tr><td>${row.driver}</td><td>${row.location}</td><td>${row.fish}</td><td>${row.spec}</td><td>${row.box}</td></tr>`;
+      });
+    }
+    document.querySelectorAll("#filterDriver,#filterLocation,#filterFish,#filterSpec")
+      .forEach(sel => sel.addEventListener("change", renderFilterTable));
+
+    // ======= 棧板小計 =======
+    function renderPalletTable() {
+      const tbody = document.querySelector("#palletTable tbody");
+      tbody.innerHTML = "";
+      Object.keys(palletSum).forEach(key => {
+        const [driver, location, pallet] = key.split("|");
+        const total = palletSum[key];
+        const percent = Math.min(100, (total / 60) * 100);
+        let color = "green";
+        if (total >= 40 && total < 60) color = "orange";
+        if (total >= 60) color = "red";
+        const isFull = total >= 60 ? "✅ 滿版" : "";
+        tbody.innerHTML += `
+          <tr>
+            <td>${driver}</td><td>${location}</td><td>${pallet}</td>
+            <td><div class="progress-bar"><div class="progress ${color}" style="width:${percent}%">${total}/60</div></div></td>
+            <td>${total}</td><td>${isFull}</td>
+          </tr>`;
+      });
+    }
+
+    // ======= 新增一筆 =======
+    document.getElementById("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!currentDriver) { alert("⚠️ 請先設定司機！"); return; }
+      if (!currentFish)   { alert("⚠️ 請先設定魚種！"); return; }
+
+      const driver  = currentDriver;
+      const fish    = currentFish;
+      const location= document.getElementById("location").value;
+      const pallet  = document.getElementById("pallet").value;
+      const spec    = document.getElementById("spec").value;
+      const box     = parseInt(document.getElementById("box").value, 10);
+
+      if (!location || !pallet || !spec || isNaN(box)) { alert("⚠️ 請完整填寫！"); return; }
+
+      const key = `${driver}|${location}|${pallet}|${fish}|${spec}`;
+      if (!summary[key]) summary[key] = { driver, location, pallet, fish, spec, box:0 };
+      summary[key].box += box;
+
+      const pKey = `${driver}|${location}|${pallet}`;
+      if (!palletSum[pKey]) palletSum[pKey] = 0;
+      palletSum[pKey] += box;
+
+      totalBox += box;
+      document.getElementById("totalBox").innerText = totalBox;
+
+      renderSummary(); renderFilterTable(); renderPalletTable(); updateFilterOptions();
+      saveData();
+
+      e.target.reset();
+    });
+
+    // ======= 清除全部 =======
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      if (!confirm("確定要清除所有資料嗎？")) return;
+      summary = {}; palletSum = {}; totalBox = 0;
+      currentDriver = ""; currentFish = "";
+      document.getElementById("driverDisplay").textContent = "尚未設定";
+      document.getElementById("fishDisplay").textContent   = "尚未設定";
+      document.getElementById("totalBox").innerText = "0";
+      renderSummary(); renderFilterTable(); renderPalletTable(); updateFilterOptions();
+      localStorage.removeItem("cargoData");
+    });
+
+    // ======= 匯出 CSV =======
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      let csv = "司機,據點,棧板編號,魚種,規格,箱數\n";
+      Object.values(summary).forEach(item => {
+        csv += `${item.driver},${item.location},${item.pallet},${item.fish},${item.spec},${item.box}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = "點貨資料.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   </script>
 </body>
 </html>
