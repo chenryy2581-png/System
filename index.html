@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>點貨系統</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+</head>
+<body>
+  <h2>📦 點貨系統</h2>
+  <p>這是測試版本，安裝成 Web App 後就能像 APP 一樣使用。</p>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").then(() => {
+        console.log("✅ Service Worker 註冊成功");
+      });
+    }
+  </script>
+</body>
+</html>
