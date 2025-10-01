@@ -12,50 +12,86 @@
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background: #f0f0f0; }
     .btn-primary { background: #007bff; color: #fff; border: none; cursor: pointer; }
+    .btn-danger { background: #dc3545; color: #fff; border: none; cursor: pointer; }
+    #debug { background: #111; color: #0f0; padding: 10px; font-size: 14px; margin-top: 20px; height: 150px; overflow-y: scroll; }
   </style>
 </head>
 <body>
   <h2>🐟 活魚下桶系統 (藍牙版)</h2>
 
-  <!-- 選單設定 -->
+  <!-- 設定 -->
   <label>🚚 司機</label>
   <select id="driver">
     <option value="">請選擇</option>
     <option>蘇得村</option><option>蘇恩田</option>
     <option>李育銘</option><option>柯嘉雄</option>
     <option>外車1</option><option>外車2</option><option>外車3</option>
+    <option value="_other">其他（自訂）</option>
   </select>
 
   <label>🐟 魚種</label>
   <select id="fish">
     <option value="">請選擇</option>
     <option>金目</option><option>加州</option><option>七星</option><option>紅尼</option><option>龍虎</option>
+    <option value="_other">其他（自訂）</option>
   </select>
 
   <label>📏 規格</label>
   <select id="spec">
     <option value="">請選擇</option>
-    <option>5-6</option><option>7-8</option><option>9-10</option><option>11-14</option><option>其他</option>
+    <option>5-6</option><option>7-8</option><option>9-10</option><option>11-14</option>
+    <option value="_other">其他（自訂）</option>
   </select>
 
   <!-- 藍牙 -->
   <button id="connectBtn" class="btn-primary">🔗 連接藍牙磅秤</button>
   <p id="status">尚未連線</p>
 
-  <!-- 紀錄 -->
+  <!-- 統計 -->
+  <h3>📊 統計</h3>
+  <p>總桶數：<span id="totalBuckets">0</span></p>
+  <p>總重量：<span id="totalWeight">0</span> 公斤</p>
+
+  <!-- 明細 -->
   <h3>📋 明細</h3>
   <table>
-    <thead><tr><th>司機</th><th>魚種</th><th>規格</th><th>重量 (kg)</th></tr></thead>
+    <thead><tr><th>司機</th><th>魚種</th><th>規格</th><th>重量 (kg)</th><th>操作</th></tr></thead>
     <tbody id="recordTable"></tbody>
   </table>
+
+  <!-- Debug 區塊 -->
+  <h3>🛠 Debug 輸出</h3>
+  <div id="debug"></div>
 
 <script>
   let records = [];
 
-  // 請修改為你磅秤的實際 UUID
-  const SERVICE_UUID = "battery_service";          // ⚠️ 改成磅秤的 Service UUID
-  const CHARACTERISTIC_UUID = "battery_level";     // ⚠️ 改成磅秤的 Characteristic UUID
+  const SERVICE_UUID = 0xFFE0;   // 磅秤主要服務
+  const CHARACTERISTIC_UUID = 0xFFE1; // 重量數據特徵
 
+  function logDebug(msg) {
+    const debugDiv = document.getElementById("debug");
+    debugDiv.innerHTML += msg + "<br>";
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
+
+  // 下拉選單處理
+  function handleSelectChange(sel) {
+    if (sel.value === "_other") {
+      const name = (prompt("輸入新選項名稱：") || "").trim();
+      if (name) {
+        const opt = document.createElement("option");
+        opt.value = name; opt.textContent = name;
+        sel.insertBefore(opt, sel.querySelector('option[value="_other"]'));
+        sel.value = name;
+      } else sel.value = "";
+    }
+  }
+  document.getElementById("driver").addEventListener("change", function(){handleSelectChange(this)});
+  document.getElementById("fish").addEventListener("change", function(){handleSelectChange(this)});
+  document.getElementById("spec").addEventListener("change", function(){handleSelectChange(this)});
+
+  // 藍牙連線
   async function connectScale() {
     try {
       const device = await navigator.bluetooth.requestDevice({
@@ -64,24 +100,43 @@
       });
 
       document.getElementById("status").textContent = "✅ 已連線：" + (device.name || "未命名裝置");
+      logDebug("連線成功，裝置名稱：" + (device.name || "未命名"));
 
       const server = await device.gatt.connect();
       const service = await server.getPrimaryService(SERVICE_UUID);
       const char = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-      // 開始監聽數據
       await char.startNotifications();
       char.addEventListener("characteristicvaluechanged", e => {
-        let value = e.target.value.getUint8(0);  // ⚠️ 依磅秤格式調整
-        let weight = value / 10; // 假設轉成公斤
+        let value = e.target.value;
+
+        // 轉成 Uint8 陣列
+        let raw = [];
+        for (let i = 0; i < value.byteLength; i++) {
+          raw.push(value.getUint8(i));
+        }
+
+        let text = new TextDecoder().decode(value).trim();
+        let weight;
+
+        if (!isNaN(parseFloat(text))) {
+          weight = parseFloat(text);
+        } else {
+          weight = value.getUint8(0); // fallback
+        }
+
+        logDebug("📥 收到原始：" + raw.join(" ") + " ｜ 解碼：" + text + " ｜ 解析重量：" + weight);
+
         addRecord(weight);
       });
 
     } catch (err) {
       document.getElementById("status").textContent = "❌ 連線失敗：" + err;
+      logDebug("❌ 連線失敗：" + err);
     }
   }
 
+  // 新增紀錄
   function addRecord(weight) {
     const driver = document.getElementById("driver").value;
     const fish   = document.getElementById("fish").value;
@@ -94,13 +149,30 @@
 
     records.push({ driver, fish, spec, weight });
     renderTable();
+    updateStats();
   }
 
+  // 渲染表格
   function renderTable() {
     const tbody = document.getElementById("recordTable");
-    tbody.innerHTML = records.map(r =>
-      `<tr><td>${r.driver}</td><td>${r.fish}</td><td>${r.spec}</td><td>${r.weight.toFixed(2)}</td></tr>`
+    tbody.innerHTML = records.map((r, idx) =>
+      `<tr>
+        <td>${r.driver}</td><td>${r.fish}</td><td>${r.spec}</td><td>${r.weight.toFixed(2)}</td>
+        <td><button class="btn-danger" onclick="deleteRecord(${idx})">刪除</button></td>
+      </tr>`
     ).join("");
+  }
+
+  function updateStats() {
+    document.getElementById("totalBuckets").innerText = records.length;
+    const totalWeight = records.reduce((s, r) => s + r.weight, 0);
+    document.getElementById("totalWeight").innerText = totalWeight.toFixed(2);
+  }
+
+  function deleteRecord(idx) {
+    records.splice(idx, 1);
+    renderTable();
+    updateStats();
   }
 
   document.getElementById("connectBtn").addEventListener("click", connectScale);
