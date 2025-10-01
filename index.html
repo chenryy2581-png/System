@@ -110,7 +110,8 @@
     <tbody></tbody>
   </table>
 
-  <script src="main.js"></script>
+  <!-- Firebase SDK -->
+  <script type="module" src="main.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js")
@@ -118,57 +119,5 @@
         .catch(err => console.error("Service Worker 註冊失敗", err));
     }
   </script>
-
-  <!-- 🚀 Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-
-  <script>
-    // 🔧 Firebase 設定
-    const firebaseConfig = {
-      apiKey: "AIzaSyDyzfiGBBfkIYUp_xKykdncocJJwLTnqMs",
-      authDomain: "cargosystem-56b91.firebaseapp.com",
-      projectId: "cargosystem-56b91",
-      storageBucket: "cargosystem-56b91.firebasestorage.app",
-      messagingSenderId: "150281096087",
-      appId: "1:150281096087:web:96b16f96f6f5887f2692d2",
-      measurementId: "G-TLMZFMZW4K"
-    };
-
-    // 初始化 Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    // 測試寫入
-    function testWrite() {
-      db.collection("testCollection").add({
-        message: "Hello Firebase!",
-        time: new Date()
-      }).then(docRef => {
-        alert("✅ 寫入成功！ID：" + docRef.id);
-      }).catch(err => {
-        alert("❌ 錯誤：" + err);
-      });
-    }
-
-    // 測試讀取
-    function testRead() {
-      db.collection("testCollection").get().then(snapshot => {
-        let result = "";
-        snapshot.forEach(doc => result += JSON.stringify(doc.data()) + "\n");
-        alert("📂 讀取到的資料：\n" + result);
-      }).catch(err => {
-        alert("❌ 讀取失敗：" + err);
-      });
-    }
-  </script>
-
-  <!-- Firebase 測試區 -->
-  <div style="margin:20px; text-align:center;">
-    <h3>🔧 Firebase 測試區</h3>
-    <button onclick="testWrite()" class="btn-primary">✍️ 測試寫入</button>
-    <button onclick="testRead()" class="btn-toggle">📖 測試讀取</button>
-  </div>
 </body>
 </html>
