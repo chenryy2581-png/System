@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BT04-A 測試連線</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { padding: 10px; font-size: 16px; background: #007bff; color: #fff; border: none; cursor: pointer; }
+    #log { background: #111; color: #0f0; padding: 10px; margin-top: 20px; height: 200px; overflow-y: scroll; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>🔗 BT04-A 藍牙連線測試</h2>
+  <button id="connectBtn">連接 BT04-A</button>
+  <div id="log"></div>
+
+<script>
+  function log(msg) {
+    const logDiv = document.getElementById("log");
+    logDiv.innerHTML += msg + "<br>";
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  async function connectBT04() {
+    try {
+      log("👉 開始掃描 BT04-A ...");
+
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'BT04-A' }],
+        optionalServices: [] // 不指定服務，只測試能不能連
+      });
+
+      log("✅ 找到裝置：" + (device.name || "未命名") + " (id: " + device.id + ")");
+
+      const server = await device.gatt.connect();
+      log("🎉 連線成功！");
+
+    } catch (err) {
+      log("❌ 連線失敗：" + err);
+    }
+  }
+
+  document.getElementById("connectBtn").addEventListener("click", connectBT04);
+</script>
+</body>
+</html>
